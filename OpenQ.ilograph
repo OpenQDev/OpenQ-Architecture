@@ -1,0 +1,185 @@
+resources:
+  - name: Client
+    subtitle: A Web3 enabled web browser
+    color: Gray
+    style: default
+    icon: AWS/_General/Client.svg
+
+  - name: Function
+    subtitle: Function
+    abstract: true
+    icon: AWS/Compute/Lambda_Lambda-Function.svg
+    
+  - name: Event
+    subtitle: Function
+    abstract: true
+    icon: AWS/Compute/Batch.svg
+    
+  - name: Mapping
+    subtitle: Mapping
+    abstract: true
+    icon: AWS/Compute/Thinkbox-Stoke.svg
+  
+  - name: Blockchain
+    subtitle: Polygon 
+    description: Any EVM compliant blockchain
+    color: navy
+    children:
+    - name: OpenQV0
+      icon: AWS/Storage/Storage.svg
+      children:
+      - name: methods
+        color: Peru
+        children:
+        - name: mintBounty
+          instanceOf: Function
+        - name: fundBounty
+          instanceOf: Function
+        - name: claimBounty
+          instanceOf: Function
+      - name: events
+        color: Peru
+        children:
+        - name: BountyCreated
+          instanceOf: Event
+        - name: DepositReceived
+          instanceOf: Event
+        - name: DepositRefunded
+          instanceOf: Event
+        - name: BountyClosed
+          instanceOf: Event
+    
+    - name: ERC20
+      subtitle: Service
+      color: Firebrick
+      style: plural
+      icon: AWS/Storage/Storage.svg
+      children:
+        - name: methods
+          children:
+          - name: approve()
+            instanceOf: Function
+          - name: transferFrom()
+            instanceOf: Function
+      
+    - name: BountyV0
+      subtitle: Bounty Smart Contrat
+      color: Purple
+      icon: AWS/Storage/Storage.svg
+      children:
+      - name: methods
+        children:
+        - name: constructor()
+          instanceOf: Function
+        - name: depositFunds()
+          instanceOf: Function
+          
+  - name: OpenQ Oracle
+    subtitle: GitHub Oracle
+    color: Purple
+    icon: AWS/Storage/CloudEndure-Disaster-Recovery.svg
+    
+  - name: GitHub API
+    subtitle: GitHub API
+    color: Purple
+    icon: AWS/Storage/CloudEndure-Disaster-Recovery.svg
+    
+  - name: OpenQ Subgraph
+    subtitle: The Graph Indexer
+    color: Purple
+    icon: AWS/Storage/CloudEndure-Disaster-Recovery.svg
+    children: 
+    - name: mappings
+      children: 
+      - name: bountyCreated
+        instanceOf: Mapping
+      - name: depositReceived
+        instanceOf: Mapping
+      - name: depositRefunded
+        instanceOf: Mapping
+      - name: bountyClosed
+        instanceOf: Mapping
+    
+perspectives:
+  - name: OpenQ Fullstack
+    relations:
+    - from: Client
+      to: OpenQV0/methods/mintBounty
+      label: Creates Bounty
+      description: |- 
+        Client calls mintBounty on OpenQ smart contract with:
+        - BountyId
+        - OrganizationId
+        
+    - from: OpenQV0/methods/mintBounty
+      to: BountyV0/methods/constructor()
+      label: Calls constructor
+      
+    - from: OpenQ Oracle
+      to: OpenQV0/methods/claimBounty
+      label: claimBounty
+      
+    - from: OpenQ Oracle
+      to: GitHub API
+      label: Get Closer Data
+      
+    - from: OpenQ Subgraph
+      to: OpenQV0
+      label: Listen for events
+      
+    - from: OpenQV0/events/BountyCreated
+      to: OpenQ Subgraph/mappings/bountyCreated
+      label: Create Bounty entity
+      
+    - from: Client
+      to: GitHub API
+      label: Get Issue Data
+      
+    - from: Client
+      to: OpenQ Oracle
+      label: Attempts claim
+      
+    - from: Client
+      to: OpenQV0/methods/fundBounty
+      label: Funds bounty
+      description: |- 
+        Client calls fundBounty with:
+        - funder address
+        - bounty address
+        - amount in wei
+
+    - from: OpenQV0/methods/fundBounty
+      to: BountyV0/methods/depositFunds()
+      label: Funds bounty
+      description: |- 
+        Client calls fundBounty with:
+        - funder address
+        - bounty address
+        - amount in wei
+      
+    - from: BountyV0
+      to: ERC20
+      label: Approve and Transfer
+      description: |- 
+        OpenQ initiates two transactions:
+        - approve spending of funds by bounty address
+        - transferFrom method from funder to bounty address
+        
+    - from: BountyV0/methods/depositFunds()
+      to: ERC20/methods/approve()
+      label: approve()
+      
+    - from: BountyV0/methods/depositFunds()
+      to: ERC20/methods/transferFrom()
+      label: transferFrom()
+    
+    - from: OpenQV0/methods/mintBounty
+      to: BountyV0/methods/constructor()
+      label: mintBounty
+      description: |- 
+        OpenQ initiates two transactions:
+        - approve spending of funds by bounty address
+        - transferFrom method from funder to bounty address
+    
+    notes: |-
+      OpenQ Fullstack
