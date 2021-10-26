@@ -1,16 +1,30 @@
 title: Mint and Claim Bounty
 
-Browser -> OpenQ: mintBounty(issueId)
+_: **Mint Bounty**
+
+Browser -> OpenQ: `mintBounty(issueId)`
 
 note:
-Browser makes direct call to OpenQ contract with ethers.js
+Browser calls OpenQ contract deployed on Polygon
 
-Browser -> OpenQOracle: calls /claim
+_: **Claim Bounty (User can withdraw)**
+Browser -> Github: User logs into GitHub with OAuth 2.0 Flow
+
+Github -> Browser: GitHub OAuth API returns a `gho` access token confirming the user's identity.
+
+Browser -> OpenQOracle: calls `/claim` on OpenQOracle
 note:
-Browser calls centralized OpenQOracle with:
+Request Body { `issueUrl` }
 
-Issue URL
+Request Cookie { `github_oauth_token httpOnly secure signed` }
 
-GitHub OAuth Token as httpOnly cookie 
+OpenQOracle -> OpenQOracle: Verify User can withdraw
+note:
+Verifies that:
 
-OpenQOracle -> OpenQ : Calls transferAll on Issue Contract
+1. The GitHub OAuth token is valid
+2. The issue is closed on GitHub
+3. The issue is OPEN on OpenQ (AKA "unclaimed")
+4. The issue is closed on GitHub from a PR whose login matches that of the GitHub OAuth token
+
+OpenQOracle -> OpenQ : Calls the `onlyOwner` contract method `claimBounty(issueId, payoutAddress)`
