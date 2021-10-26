@@ -1,0 +1,16 @@
+title: Mint and Claim Bounty
+
+Browser -> OpenQ: mintBounty(issueId)
+
+note:
+Browser makes direct call to OpenQ contract with ethers.js
+
+Browser -> OpenQOracle: calls /claim
+note:
+Browser calls centralized OpenQOracle with:
+
+Issue URL
+
+GitHub OAuth Token as httpOnly cookie 
+
+OpenQOracle -> OpenQ : Calls transferAll on Issue Contract
