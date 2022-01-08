@@ -4,32 +4,42 @@ resources:
     color: Gray
     style: default
     icon: AWS/_General/Client.svg
+    children: 
+    - name: Web3 Wallet
+      children: 
+      - name: methods
+        children: 
+        - name: mintBounty
+          instanceOf: Function
+        - name: fundBounty
+          instanceOf: Function
 
   - name: Function
     subtitle: Function
     abstract: true
     icon: AWS/Compute/Lambda_Lambda-Function.svg
+    backgroundColor: AntiqueWhite
     
   - name: Event
     subtitle: Function
     abstract: true
     icon: AWS/Compute/Batch.svg
+    backgroundColor: AliceBlue
     
   - name: Mapping
     subtitle: Mapping
     abstract: true
     icon: AWS/Compute/Thinkbox-Stoke.svg
+    backgroundColor: AliceBlue
   
   - name: Blockchain
     subtitle: Polygon 
     description: Any EVM compliant blockchain
-    color: navy
     children:
-    - name: OpenQV0
+    - name: OpenQ
       icon: AWS/Storage/Storage.svg
       children:
       - name: methods
-        color: Peru
         children:
         - name: mintBounty
           instanceOf: Function
@@ -38,7 +48,6 @@ resources:
         - name: claimBounty
           instanceOf: Function
       - name: events
-        color: Peru
         children:
         - name: BountyCreated
           instanceOf: Event
@@ -47,6 +56,8 @@ resources:
         - name: DepositRefunded
           instanceOf: Event
         - name: BountyClosed
+          instanceOf: Event
+        - name: BountyPaidout
           instanceOf: Event
     
     - name: ERC20
@@ -62,7 +73,7 @@ resources:
           - name: transferFrom()
             instanceOf: Function
       
-    - name: BountyV0
+    - name: Bounty
       subtitle: Bounty Smart Contrat
       color: Purple
       icon: AWS/Storage/Storage.svg
@@ -73,6 +84,40 @@ resources:
           instanceOf: Function
         - name: depositFunds()
           instanceOf: Function
+  
+  - name: OpenQProxy
+    subtitle: Upgradable EIP-1967 Proxy
+    description: |-
+      Stores the current version of OpenQ in EIP-1967 standard   storage slot
+      
+      Uses an onlyOwner upgradeImplementation(address) method for upgrades
+      
+      https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol
+  - name: OpenQV0
+    subtitle: Implementation of OpenQ Logic
+    description:  |- 
+            Coordinator for all OpenQ transactions and event emissions
+            
+            https://github.com/OpenQDev/OpenQ-Contracts/blob/main/contracts/OpenQ/Implementations/OpenQV0.sol
+  - name: BountyFactory
+    subtitle: EIP-1167 Clone Factory
+    description: |- 
+      Uses cloneDeterministic() method on EIP-1167 Clone library to mint a new Bounty minimal proxy with a predictable address, salted with the bountyId
+      
+      https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/Clones.sol
+  - name: BountyV0
+    subtitle: Implementation of Bounty Logic
+  - name: BountyV0-Clone
+    style: plural
+    subtitle: EIP-1167 Minimal Proxy
+    description: |-
+      A very small non-upgradable proxy with a deterministic address
+      
+      Drastically decreases gas cost for minting new bounties (only 45 bytes!)
+  - name: OpenQStorage
+    subtitle: An Eternal Storage contract for persisting arbitrary data across version upgrades
+    description: |-
+      https://github.com/OpenQDev/OpenQ-Contracts/blob/main/contracts/Storage/OpenQStorage.sol
           
   - name: OpenQ Oracle
     subtitle: GitHub Oracle
@@ -90,57 +135,86 @@ resources:
     icon: AWS/Storage/CloudEndure-Disaster-Recovery.svg
     children: 
     - name: mappings
-      children: 
+      children:
       - name: bountyCreated
         instanceOf: Mapping
+        description: https://github.com/OpenQDev/OpenQ-Graph/blob/main/src/mapping.ts#L20
       - name: depositReceived
         instanceOf: Mapping
       - name: depositRefunded
         instanceOf: Mapping
       - name: bountyClosed
         instanceOf: Mapping
+      - name: bountyPaidOut
+        instanceOf: Mapping
     
 perspectives:
-  - name: OpenQ Fullstack
+  - name: High Level
     relations:
     - from: Client
-      to: OpenQV0/methods/mintBounty
+      to: Blockchain
+      label: Creates Bounty
+    - from: Client
+      to: GitHub API
+      label: Get Issue Data
+    - from: Client
+      to: OpenQ Oracle
+      label: Attempts claim
+    - from: OpenQ Subgraph
+      to: Blockchain
+      label: Listen for events
+    - from: Client/Web3 Wallet
+      to: Blockchain
+      label: Funds bounty
+
+  - name: OpenQ Fullstack
+    relations:
+    - from: Client/Web3 Wallet/methods/mintBounty
+      to: OpenQ/methods/mintBounty
       label: Creates Bounty
       description: |- 
         Client calls mintBounty on OpenQ smart contract with:
         - BountyId
         - OrganizationId
         
-    - from: OpenQV0/methods/mintBounty
-      to: BountyV0/methods/constructor()
+    - from: OpenQ/methods/mintBounty
+      to: Bounty/methods/constructor()
       label: Calls constructor
       
+    - from: Client
+      to: OpenQ Oracle
+      label: Claim bounty
+      
     - from: OpenQ Oracle
-      to: OpenQV0/methods/claimBounty
+      to: OpenQ/methods/claimBounty
       label: claimBounty
       
     - from: OpenQ Oracle
       to: GitHub API
       label: Get Closer Data
       
-    - from: OpenQ Subgraph
-      to: OpenQV0
-      label: Listen for events
-      
-    - from: OpenQV0/events/BountyCreated
+    - from: OpenQ/events/BountyCreated
       to: OpenQ Subgraph/mappings/bountyCreated
       label: Create Bounty entity
       
-    - from: Client
-      to: GitHub API
-      label: Get Issue Data
+    - from: OpenQ/events/BountyClosed
+      to: OpenQ Subgraph/mappings/bountyClosed
+      label: Close Bounty entity
       
-    - from: Client
-      to: OpenQ Oracle
-      label: Attempts claim
+    - from: OpenQ/events/DepositReceived
+      to: OpenQ Subgraph/mappings/depositReceived
+      label: Deposit Received
       
-    - from: Client
-      to: OpenQV0/methods/fundBounty
+    - from: OpenQ/events/DepositRefunded
+      to: OpenQ Subgraph/mappings/depositRefunded
+      label: Deposit Refunded
+      
+    - from: OpenQ/events/BountyPaidout
+      to: OpenQ Subgraph/mappings/bountyPaidOut
+      label: Bounty Paid Out
+      
+    - from: Client/Web3 Wallet/methods/fundBounty
+      to: OpenQ/methods/fundBounty
       label: Funds bounty
       description: |- 
         Client calls fundBounty with:
@@ -148,8 +222,8 @@ perspectives:
         - bounty address
         - amount in wei
 
-    - from: OpenQV0/methods/fundBounty
-      to: BountyV0/methods/depositFunds()
+    - from: OpenQ/methods/fundBounty
+      to: Bounty/methods/depositFunds()
       label: Funds bounty
       description: |- 
         Client calls fundBounty with:
@@ -157,7 +231,7 @@ perspectives:
         - bounty address
         - amount in wei
       
-    - from: BountyV0
+    - from: Bounty
       to: ERC20
       label: Approve and Transfer
       description: |- 
@@ -165,21 +239,37 @@ perspectives:
         - approve spending of funds by bounty address
         - transferFrom method from funder to bounty address
         
-    - from: BountyV0/methods/depositFunds()
+    - from: Bounty/methods/depositFunds()
       to: ERC20/methods/approve()
       label: approve()
       
-    - from: BountyV0/methods/depositFunds()
+    - from: Bounty/methods/depositFunds()
       to: ERC20/methods/transferFrom()
       label: transferFrom()
     
-    - from: OpenQV0/methods/mintBounty
-      to: BountyV0/methods/constructor()
+    - from: OpenQ/methods/mintBounty
+      to: Bounty/methods/constructor()
       label: mintBounty
       description: |- 
-        OpenQ initiates two transactions:
-        - approve spending of funds by bounty address
-        - transferFrom method from funder to bounty address
+        OpenQ contract mints new BountyV0 contract and returns the address
     
     notes: |-
       OpenQ Fullstack
+  
+  - name: Contracts
+    relations:
+    - from: OpenQProxy
+      to: OpenQV0
+      label: Delegates to
+    - from: OpenQProxy
+      to: OpenQStorage
+      label: Persists data on
+    - from: OpenQV0
+      to: BountyFactory
+      label: Mints with
+    - from: BountyFactory
+      to: BountyV0-Clone
+      label: Mints
+    - from: BountyV0-Clone
+      to: BountyV0
+      label: Delegates to
